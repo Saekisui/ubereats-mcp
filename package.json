@@ -1,5 +1,5 @@
 {
-  "name": "ubereats-jp-mcp",
+  "name": "ubereats-mcp",
   "version": "0.1.0",
   "private": true,
   "description": "让 AI 在你自己的 Chrome 里帮你点 Uber Eats：搜店、看菜单、加购、结算快照、你点头后下单、跟配送。",

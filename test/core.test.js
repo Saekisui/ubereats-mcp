@@ -13,7 +13,7 @@ const NOW = Date.parse("2026-08-22T03:00:00.000Z"); // 12:00 JST
 const POLICY = { enabled: true, maxPerOrder: 6000, maxPerDay: 12000, tokenTtlMin: 10 };
 
 function tmpFile(name, content) {
-  const dir = mkdtempSync(join(tmpdir(), "ubereats-jp-"));
+  const dir = mkdtempSync(join(tmpdir(), "ubereats-"));
   const p = join(dir, name);
   if (content !== undefined) writeFileSync(p, content);
   return p;

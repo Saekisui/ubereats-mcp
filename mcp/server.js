@@ -12,7 +12,7 @@ import {
 } from "./core.js";
 
 function log(...args) {
-  process.stderr.write(`[ubereats-jp] ${args.map((a) => (typeof a === "string" ? a : JSON.stringify(a))).join(" ")}\n`);
+  process.stderr.write(`[ubereats] ${args.map((a) => (typeof a === "string" ? a : JSON.stringify(a))).join(" ")}\n`);
 }
 function send(message) { process.stdout.write(JSON.stringify(message) + "\n"); }
 
@@ -169,7 +169,7 @@ async function handle(msg) {
   const { id, method, params } = msg;
   try {
     if (method === "initialize") {
-      send({ jsonrpc: "2.0", id, result: { protocolVersion: "2024-11-05", capabilities: { tools: {} }, serverInfo: { name: "ubereats-jp", version: "0.1.0" } } });
+      send({ jsonrpc: "2.0", id, result: { protocolVersion: "2024-11-05", capabilities: { tools: {} }, serverInfo: { name: "ubereats", version: "0.1.0" } } });
       return;
     }
     if (method === "tools/list") { send({ jsonrpc: "2.0", id, result: { tools: TOOLS } }); return; }

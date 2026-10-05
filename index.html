@@ -3,18 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>让 AI 帮你点外卖 · ubereats-jp-mcp</title>
+<title>让 AI 帮你点外卖 · ubereats-mcp</title>
 <meta name="description" content="一个 MCP server + 一套 OpenCLI adapter：AI 在你自己的 Chrome 里帮你点 Uber Eats——搜店、挑菜、看结算快照，你点头才下单。">
 <meta name="theme-color" content="#f9f6f2">
 <meta property="og:type" content="website">
 <meta property="og:title" content="让 AI 帮你点外卖">
 <meta property="og:description" content="Uber Eats · MCP —— 搜店、挑菜、看结算快照，你点头才下单。">
-<meta property="og:url" content="https://saekisui.github.io/ubereats-jp-mcp/">
-<meta property="og:image" content="https://saekisui.github.io/ubereats-jp-mcp/assets/cover.png">
+<meta property="og:url" content="https://saekisui.github.io/ubereats-mcp/">
+<meta property="og:image" content="https://saekisui.github.io/ubereats-mcp/assets/cover.png">
 <meta property="og:image:width" content="2400">
 <meta property="og:image:height" content="1260">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image" content="https://saekisui.github.io/ubereats-jp-mcp/assets/cover.png">
+<meta name="twitter:image" content="https://saekisui.github.io/ubereats-mcp/assets/cover.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -182,11 +182,11 @@
     <div class="nod rise d3">你点头，才下单。</div>
     <div class="by rise d3"><b>小玫瑰 × Claude</b></div>
     <div class="actions rise d4">
-      <a class="btn primary" href="https://github.com/Saekisui/ubereats-jp-mcp">
+      <a class="btn primary" href="https://github.com/Saekisui/ubereats-mcp">
         <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
         GitHub 仓库
       </a>
-      <a class="btn" href="https://github.com/Saekisui/ubereats-jp-mcp/blob/main/PITFALLS.md">踩坑记录</a>
+      <a class="btn" href="https://github.com/Saekisui/ubereats-mcp/blob/main/PITFALLS.md">踩坑记录</a>
     </div>
   </header>
 
@@ -274,15 +274,15 @@
       <li><b>装 Chrome 扩展</b>：按 OpenCLI 的说明装好 Browser Bridge 扩展，确认 <code>opencli doctor</code> 通过。</li>
       <li><b>登录 Uber Eats</b>：在这个 Chrome 里登录 ubereats.com，设好配送地址。</li>
       <li><b>拿到仓库，把 adapter 同步过去</b>（OpenCLI 不认软链目录，改了 adapter 要再跑一次）
-        <div class="code"><button type="button">复制</button><pre>git clone https://github.com/Saekisui/ubereats-jp-mcp.git
-cd ubereats-jp-mcp
+        <div class="code"><button type="button">复制</button><pre>git clone https://github.com/Saekisui/ubereats-mcp.git
+cd ubereats-mcp
 npm run sync</pre></div></li>
       <li><b>先用命令行试一下</b>（都是只读的）
         <div class="code"><button type="button">复制</button><pre>opencli ubereats whoami
 opencli ubereats search ramen --limit 5</pre></div>想用日文界面，就在命令前加 <code>UE_LOCALE=jp</code>。</li>
       <li><b>想让 AI 能下单</b>，就编辑 <code>policy.json</code>，把 <code>"enabled"</code> 改成 <code>true</code>，按自己的情况调上限（账号币种），需要的话写上 <code>"timezone"</code>。不改的话，只能搜、看、加购。</li>
       <li><b>注册 MCP</b>（以 Claude Code 为例；要日文界面加 <code>-e UE_LOCALE=jp</code>，opencli 不在 <code>~/.npm-global/bin/opencli</code> 的话再加 <code>-e OPENCLI_BIN=…</code>）
-        <div class="code"><button type="button">复制</button><pre>claude mcp add ubereats-jp -- node /绝对路径/ubereats-jp-mcp/mcp/server.js</pre></div></li>
+        <div class="code"><button type="button">复制</button><pre>claude mcp add ubereats -- node /绝对路径/ubereats-mcp/mcp/server.js</pre></div></li>
     </ol>
   </section>
 
@@ -305,7 +305,7 @@ opencli ubereats search ramen --limit 5</pre></div>想用日文界面，就在�
     <h2>已知限制</h2>
     <div class="eyebrow">Limits</div>
     <ul class="dots">
-      <li>日本 + 日文界面实测最多；英文界面的下单步骤、其他国家的结算流程（比如美国的小费）还没人真跑过，认不出就会停下。Uber 的页面和接口随时会变，坏了先看 <a href="https://github.com/Saekisui/ubereats-jp-mcp/blob/main/PITFALLS.md">踩坑记录</a>。</li>
+      <li>日本 + 日文界面实测最多；英文界面的下单步骤、其他国家的结算流程（比如美国的小费）还没人真跑过，认不出就会停下。Uber 的页面和接口随时会变，坏了先看 <a href="https://github.com/Saekisui/ubereats-mcp/blob/main/PITFALLS.md">踩坑记录</a>。</li>
       <li>请求别太密：太频繁时 Uber 会要求 reCAPTCHA 人机验证（接口回 403）。去 Chrome 里打开 ubereats.com 手动过一下验证再用，脚本不会去碰验证码。浏览器命令请一条一条跑，别并发。</li>
       <li>第一次真下单，请人在旁边看着。</li>
       <li>药品之类可能弹问诊或确认框，脚本认不出就会停下，需要你自己在 app 里完成。</li>
