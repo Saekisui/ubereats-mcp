@@ -4,11 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>让 AI 帮你点外卖 · ubereats-jp-mcp</title>
-<meta name="description" content="一个 MCP server + 一套 OpenCLI adapter：AI 在你自己的 Chrome 里帮你点 Uber Eats（日本站）——搜店、挑菜、看结算快照，你点头才下单。">
+<meta name="description" content="一个 MCP server + 一套 OpenCLI adapter：AI 在你自己的 Chrome 里帮你点 Uber Eats——搜店、挑菜、看结算快照，你点头才下单。">
 <meta name="theme-color" content="#f9f6f2">
 <meta property="og:type" content="website">
 <meta property="og:title" content="让 AI 帮你点外卖">
-<meta property="og:description" content="Uber Eats 日本站 · MCP —— 搜店、挑菜、看结算快照，你点头才下单。">
+<meta property="og:description" content="Uber Eats · MCP —— 搜店、挑菜、看结算快照，你点头才下单。">
 <meta property="og:url" content="https://saekisui.github.io/ubereats-jp-mcp/">
 <meta property="og:image" content="https://saekisui.github.io/ubereats-jp-mcp/assets/cover.png">
 <meta property="og:image:width" content="2400">
@@ -177,7 +177,7 @@
   <img class="cover rise" src="assets/cover.png" alt="让 AI 帮你点外卖：左边是标题，右边是一段对话——想吃拉面、结算快照、好呀、下单了" width="2400" height="1260">
 
   <header>
-    <div class="kicker rise d1">Uber Eats <span>日本站</span> · MCP</div>
+    <div class="kicker rise d1">Uber Eats · MCP</div>
     <h1 class="rise d2">让 <span class="latin">AI</span><br>帮你点外卖</h1>
     <div class="nod rise d3">你点头，才下单。</div>
     <div class="by rise d3"><b>小玫瑰 × Claude</b></div>
@@ -191,7 +191,7 @@
   </header>
 
   <div class="intro glass rise d4">
-    一个 MCP server 加一套 <a href="https://github.com/jackwener/opencli">OpenCLI</a> adapter。AI 在<b>你自己的 Chrome</b> 里，用你的登录态帮你点 Uber Eats（日本站）：搜店、看菜单、加购、给你看结算快照，<b>你在对话里点头之后</b>才下单，下完还能跟配送。地址和支付只用账号里存好的，对话里从不出现卡号和地址。
+    一个 MCP server 加一套 <a href="https://github.com/jackwener/opencli">OpenCLI</a> adapter。AI 在<b>你自己的 Chrome</b> 里，用你的登录态帮你点 Uber Eats：搜店、看菜单、加购、给你看结算快照，<b>你在对话里点头之后</b>才下单，下完还能跟配送。地址和支付只用账号里存好的，对话里从不出现卡号和地址。
   </div>
 
   <section>
@@ -253,22 +253,35 @@
   </section>
 
   <section>
+    <h2>国家和语言</h2>
+    <div class="eyebrow">Any country Uber Eats serves</div>
+    <p class="lead">Uber Eats 网址里的 <code>/jp</code> 管的是界面语言，不是国家：显示哪些店、用什么币种，跟着你账号的配送地址走。所以它不分国家，只分界面语言。价格不认币种，¥、$、NT$、HK$、£、€ 都能读。</p>
+    <div class="two">
+      <div class="card glass"><h3>英文界面 · 默认</h3><ul class="dots"><li>读的部分（搜店、菜单、购物车、结算快照）走同一套接口</li><li>下单这一步还没人在英文界面上真跑过</li></ul></div>
+      <div class="card glass"><h3>日文界面 · <code>UE_LOCALE=jp</code></h3><ul class="dots"><li>实测最多：十几单真单</li><li>凑单弹窗、地址确认框、假阴性这些坑都踩过</li></ul></div>
+    </div>
+    <div class="intro glass" style="margin-top:14px">
+      <b>在日本以外第一次用</b>：先把只读命令都跑一遍，再用 <code>place --dry-run</code> 走到结算页（只校验、不下单），第一单真下时人在旁边看着。脚本认不出的弹窗会停下，并把按钮列表带回来，把那段报错发个 issue，就能把这个国家补上。
+    </div>
+  </section>
+
+  <section>
     <h2>准备</h2>
     <div class="eyebrow">Setup</div>
     <ol class="steps">
       <li><b>Node 20+ 和 OpenCLI</b>（在 1.8.6 上测过）
         <div class="code"><button type="button">复制</button><pre>npm i -g @jackwener/opencli</pre></div></li>
       <li><b>装 Chrome 扩展</b>：按 OpenCLI 的说明装好 Browser Bridge 扩展，确认 <code>opencli doctor</code> 通过。</li>
-      <li><b>登录 Uber Eats</b>：在这个 Chrome 里登录 ubereats.com（日本），设好配送地址。</li>
+      <li><b>登录 Uber Eats</b>：在这个 Chrome 里登录 ubereats.com，设好配送地址。</li>
       <li><b>拿到仓库，把 adapter 同步过去</b>（OpenCLI 不认软链目录，改了 adapter 要再跑一次）
         <div class="code"><button type="button">复制</button><pre>git clone https://github.com/Saekisui/ubereats-jp-mcp.git
 cd ubereats-jp-mcp
 npm run sync</pre></div></li>
       <li><b>先用命令行试一下</b>（都是只读的）
         <div class="code"><button type="button">复制</button><pre>opencli ubereats whoami
-opencli ubereats search ラーメン --limit 5</pre></div></li>
-      <li><b>想让 AI 能下单</b>，就编辑 <code>policy.json</code>，把 <code>"enabled"</code> 改成 <code>true</code>，按自己的情况调上限。不改的话，只能搜、看、加购。</li>
-      <li><b>注册 MCP</b>（以 Claude Code 为例；opencli 不在 <code>~/.npm-global/bin/opencli</code> 的话，加环境变量 <code>OPENCLI_BIN</code>）
+opencli ubereats search ramen --limit 5</pre></div>想用日文界面，就在命令前加 <code>UE_LOCALE=jp</code>。</li>
+      <li><b>想让 AI 能下单</b>，就编辑 <code>policy.json</code>，把 <code>"enabled"</code> 改成 <code>true</code>，按自己的情况调上限（账号币种），需要的话写上 <code>"timezone"</code>。不改的话，只能搜、看、加购。</li>
+      <li><b>注册 MCP</b>（以 Claude Code 为例；要日文界面加 <code>-e UE_LOCALE=jp</code>，opencli 不在 <code>~/.npm-global/bin/opencli</code> 的话再加 <code>-e OPENCLI_BIN=…</code>）
         <div class="code"><button type="button">复制</button><pre>claude mcp add ubereats-jp -- node /绝对路径/ubereats-jp-mcp/mcp/server.js</pre></div></li>
     </ol>
   </section>
@@ -292,7 +305,7 @@ opencli ubereats search ラーメン --limit 5</pre></div></li>
     <h2>已知限制</h2>
     <div class="eyebrow">Limits</div>
     <ul class="dots">
-      <li>只在日本站、日语页面上测过。Uber 的页面和接口随时会变，坏了先看 <a href="https://github.com/Saekisui/ubereats-jp-mcp/blob/main/PITFALLS.md">踩坑记录</a>。</li>
+      <li>日本 + 日文界面实测最多；英文界面的下单步骤、其他国家的结算流程（比如美国的小费）还没人真跑过，认不出就会停下。Uber 的页面和接口随时会变，坏了先看 <a href="https://github.com/Saekisui/ubereats-jp-mcp/blob/main/PITFALLS.md">踩坑记录</a>。</li>
       <li>请求别太密：太频繁时 Uber 会要求 reCAPTCHA 人机验证（接口回 403）。去 Chrome 里打开 ubereats.com 手动过一下验证再用，脚本不会去碰验证码。浏览器命令请一条一条跑，别并发。</li>
       <li>第一次真下单，请人在旁边看着。</li>
       <li>药品之类可能弹问诊或确认框，脚本认不出就会停下，需要你自己在 app 里完成。</li>

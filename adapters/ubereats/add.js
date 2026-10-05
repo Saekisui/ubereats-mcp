@@ -1,6 +1,7 @@
 import { cli, Strategy } from '@jackwener/opencli/registry';
 import { CommandExecutionError } from '@jackwener/opencli/errors';
 import { UE, storeUrl, unwrap, uuidFromShortId, requireLogin, loadCarts, nativeClickSelector } from './_shared.js';
+import { PRICE, UI } from './_ui.js';
 
 // 加购（写）：id = store:item（store 命令给的）。
 //  - 没有 spec、qty=1、有快捷加购 → 原生点 quick-add-button（默认选项）
@@ -32,17 +33,17 @@ cli({
     await page.wait(5);
     await requireLogin(page);
     const liSel = `li[data-testid="store-item-${itemUuid}"]`;
-    let info = unwrap(await page.evaluate(`(() => { const li = document.querySelector(${JSON.stringify(liSel)}); if (!li) return null; li.scrollIntoView({ block: 'center', behavior: 'instant' }); const txt = li.innerText.replace(/\\s+/g, ' '); return { title: txt.split(/[￥¥]/)[0].replace(/売り切れ.*$/, '').trim(), soldOut: /売り切れ/.test(txt), quick: !!li.querySelector('[data-testid=quick-add-button]'), store: (document.querySelector('h1') || {}).innerText || '' }; })()`));
+    let info = unwrap(await page.evaluate(`(() => { const li = document.querySelector(${JSON.stringify(liSel)}); if (!li) return null; li.scrollIntoView({ block: 'center', behavior: 'instant' }); const txt = li.innerText.replace(/\\s+/g, ' '); return { title: txt.split(${PRICE})[0].replace(${UI.soldOutTail}, '').trim(), soldOut: ${UI.soldOut}.test(txt), quick: !!li.querySelector('[data-testid=quick-add-button]'), store: (document.querySelector('h1') || {}).innerText || '' }; })()`));
     if (!info && sectionUuid && subsectionUuid) {
       // 超市 / 药店的商品多半不在首页：带货架 uuid 的 quickView 深链直接开商品框（四个 uuid 少一个都开不出来，10/05 侦察）
       const ctx = encodeURIComponent(encodeURIComponent(JSON.stringify({ storeUuid: uuidFromShortId(storeId), sectionUuid, subsectionUuid, itemUuid })));
       // 真店名路径从页面读（getCurrentUrl 回的是 goto 的 /store/s/… 短地址，它一跳转就丢参数）
       await page.goto(`${UE}${unwrap(await page.evaluate('location.pathname'))}?diningMode=DELIVERY&mod=quickView&modctx=${ctx}`);
       await page.wait(5);
-      info = unwrap(await page.evaluate(`(() => { const dlg = document.querySelector('[role=dialog]'); const add = dlg && dlg.querySelector('[data-testid=add-to-cart-button]'); if (!add) return null; return { title: ((dlg.querySelector('[data-testid=menu-item-title]') || dlg.querySelector('h1') || {}).innerText || '').trim(), soldOut: /売り切れ/.test(add.innerText), quick: false, store: (document.querySelector('h1') || {}).innerText || '', deep: true }; })()`));
+      info = unwrap(await page.evaluate(`(() => { const dlg = document.querySelector('[role=dialog]'); const add = dlg && dlg.querySelector('[data-testid=add-to-cart-button]'); if (!add) return null; return { title: ((dlg.querySelector('[data-testid=menu-item-title]') || dlg.querySelector('h1') || {}).innerText || '').trim(), soldOut: ${UI.soldOut}.test(add.innerText), quick: false, store: (document.querySelector('h1') || {}).innerText || '', deep: true }; })()`));
     }
     if (!info) throw new CommandExecutionError(`item ${itemUuid} not on this store page (scroll / wrong store?)`);
-    if (info.soldOut) throw new CommandExecutionError(`「${info.title}」売り切れ`);
+    if (info.soldOut) throw new CommandExecutionError(`「${info.title}」sold out（売り切れ）`);
 
     const before = await loadCarts(page);
     let via;
@@ -76,17 +77,17 @@ cli({
         for (const g of dlg.querySelectorAll('[data-testid=customization-pick-one]')) {
           const inputs = [...g.querySelectorAll('input')];
           if (!inputs.length || inputs.some((i) => i.checked)) continue;
-          if (!/必須|required/i.test(t(g))) continue;
+          if (!${UI.required}.test(t(g))) continue;
           const first = inputs[0];
           (first.closest('label') || first).click();
           if (!first.checked) first.click();
-          filled.push(t(g).split(/\\s+\\d+\\s*個/)[0].slice(0, 30));
+          filled.push(t(g).slice(0, 30));
         }
-        const saveBtn = [...dlg.querySelectorAll('button')].find((b) => /^保存|^完了|^次へ/.test(t(b)) && !/閉じる/.test(t(b)));
+        const saveBtn = [...dlg.querySelectorAll('button')].find((b) => ${UI.subpageSave}.test(t(b)) && !${UI.subpageNot}.test(t(b)));
         const addBtn = dlg.querySelector('[data-testid=add-to-cart-button]');
         return { ok: true, picked, filled, stillMissing, subpage: !!saveBtn && !addBtn, saveText: saveBtn ? t(saveBtn).slice(0, 20) : null };
       })()`;
-      const clickSaveJs = `(() => { const t = (el) => (el ? el.innerText.replace(/\\s+/g, ' ').trim() : ''); const dlg = document.querySelector('[role=dialog]'); const b = dlg && [...dlg.querySelectorAll('button')].find((x) => /^保存|^完了|^次へ/.test(t(x))); if (!b) return false; b.click(); return true; })()`;
+      const clickSaveJs = `(() => { const t = (el) => (el ? el.innerText.replace(/\\s+/g, ' ').trim() : ''); const dlg = document.querySelector('[role=dialog]'); const b = dlg && [...dlg.querySelectorAll('button')].find((x) => ${UI.subpageSave}.test(t(x)) && !${UI.subpageNot}.test(t(x))); if (!b) return false; b.click(); return true; })()`;
       let remaining = [...specWords];
       const pickedAll = []; const filledAll = []; let saves = 0;
       for (let round = 0; round < 8; round += 1) {
@@ -114,7 +115,7 @@ cli({
           if (opt) { Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(sel, opt.value); sel.dispatchEvent(new Event('change', { bubbles: true })); qtySet = ${qty}; }
         }
         const btn = dlg.querySelector('[data-testid=add-to-cart-button]');
-        const unselected = [...dlg.querySelectorAll('[data-testid=customization-pick-one]')].filter((g) => /必須|required/i.test(t(g)) && ![...g.querySelectorAll('input')].some((i) => i.checked)).map((g) => t(g).slice(0, 30));
+        const unselected = [...dlg.querySelectorAll('[data-testid=customization-pick-one]')].filter((g) => ${UI.required}.test(t(g)) && ![...g.querySelectorAll('input')].some((i) => i.checked)).map((g) => t(g).slice(0, 30));
         return { ok: true, qtySet, btnText: t(btn), btnDisabled: !btn || btn.disabled || btn.getAttribute('aria-disabled') === 'true', unselected };
       })()`));
       if (!fin?.ok) throw new CommandExecutionError('item modal vanished before add');
@@ -126,7 +127,7 @@ cli({
     // 弹窗可能晚到、也可能连环（商品详情框 → 「新しい注文を作成」确认框）：轮询处理，有按钮就按。
     // 加购键只在快捷加购那条路上补按（详情框晚到）；模态框那条路上面已经按过，框没及时关时再按就是加两份
     const allowAdd = via.startsWith('quick-add');
-    const dlgHandlerJs = `(() => { const dlg = document.querySelector('[role=dialog]'); if (!dlg) return null; const add = ${allowAdd} ? dlg.querySelector('[data-testid=add-to-cart-button]') : null; if (add && !add.disabled && add.getAttribute('aria-disabled') !== 'true') { add.click(); return { clicked: add.innerText.trim() }; } const b = [...dlg.querySelectorAll('button')].find((x) => /新しい注文|新規|作成|続行|OK|はい/.test(x.innerText)); if (!b) return { text: dlg.innerText.replace(/\\s+/g, ' ').slice(0, 160) }; b.click(); return { clicked: b.innerText.trim() }; })()`;
+    const dlgHandlerJs = `(() => { const dlg = document.querySelector('[role=dialog]'); if (!dlg) return null; const add = ${allowAdd} ? dlg.querySelector('[data-testid=add-to-cart-button]') : null; if (add && !add.disabled && add.getAttribute('aria-disabled') !== 'true') { add.click(); return { clicked: add.innerText.trim() }; } const b = [...dlg.querySelectorAll('button')].find((x) => ${UI.newOrderOk}.test(x.innerText.trim())); if (!b) return { text: dlg.innerText.replace(/\\s+/g, ' ').slice(0, 160) }; b.click(); return { clicked: b.innerText.trim() }; })()`;
     const confirmClicks = []; let confirm = null; let quietRounds = 0;
     for (let i = 0; i < 5 && quietRounds < 2; i += 1) {
       await page.wait(2.5);

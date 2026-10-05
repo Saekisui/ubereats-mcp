@@ -1,5 +1,5 @@
 {
-  "_note": "下单策略——只该由你本人改，别让 AI 改。enabled 改成 true 才能下单（搜 / 看 / 加购不受影响）；上限单位是日元，null = 不设。",
+  "_note": "下单策略——只该由你本人改，别让 AI 改。enabled 改成 true 才能下单（搜 / 看 / 加购不受影响）；上限单位是账号所在国家的币种，null = 不设；timezone 可选（IANA，如 \"Asia/Tokyo\"），不写就按这台电脑的时区算「当天」。",
   "enabled": false,
   "maxPerOrder": 3000,
   "maxPerDay": 6000,

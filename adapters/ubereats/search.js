@@ -1,12 +1,13 @@
 import { cli, Strategy } from '@jackwener/opencli/registry';
 import { EmptyResultError } from '@jackwener/opencli/errors';
-import { UE, ensureUE, requireLogin, api, shortIdFromUrl } from './_shared.js';
+import { UE, LOCALE, ensureUE, requireLogin, api, shortIdFromUrl } from './_shared.js';
+import { PRICE, UI } from './_ui.js';
 
 cli({
   site: 'ubereats',
   name: 'search',
   access: 'read',
-  description: 'Uber Eats 搜店 / 搜菜（账号当前的配送地址；页内 getSearchFeedV1）',
+  description: 'Uber Eats 搜店 / 搜菜 / 搜商品（账号当前的配送地址；页内 getSearchFeedV1）',
   domain: 'www.ubereats.com',
   strategy: Strategy.COOKIE,
   args: [
@@ -29,7 +30,7 @@ cli({
       const s = fi.store || fi.miniStoreWithItems?.store; if (!s) continue;
       const meta = (s.meta || []).map((m) => m?.text).filter(Boolean);
       const eta = meta.find((t) => /分|min/.test(t)) || '';
-      const fare = meta.find((t) => /配達手数料|[￥¥]/.test(t) && t !== eta) || '';
+      const fare = meta.find((t) => (UI.deliveryFee.test(t) || PRICE.test(t)) && t !== eta) || '';
       const path = s.actionUrl || '';
       rows.push({
         id: shortIdFromUrl(path) || s.storeUuid || '',
@@ -38,7 +39,7 @@ cli({
         eta,
         fare,
         items: (fi.miniStoreWithItems?.items || []).slice(0, 3).map((it) => `${it.title?.text || ''} ${it.subtitles?.[0]?.text || ''}`.trim()).join('；'),
-        url: path ? `${UE}/jp${path.startsWith('/jp') ? path.slice(3) : path}` : '',
+        url: path ? `${UE}${LOCALE.prefix && !path.startsWith(`${LOCALE.prefix}/`) ? LOCALE.prefix : ''}${path}` : '',
       });
       if (rows.length >= limit) break;
     }
