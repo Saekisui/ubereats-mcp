@@ -1,0 +1,14 @@
+{
+  "name": "ubereats-jp-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "让 AI 在你自己的 Chrome 里帮你点 Uber Eats（日本站）：搜店、看菜单、加购、结算快照、你点头后下单、跟配送。",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node mcp/server.js",
+    "sync": "sh scripts/sync-adapters.sh",
+    "test": "node --test test/core.test.js"
+  },
+  "license": "MIT"
+}
