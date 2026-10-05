@@ -1,6 +1,7 @@
 import { cli, Strategy } from '@jackwener/opencli/registry';
 import { CommandExecutionError, EmptyResultError } from '@jackwener/opencli/errors';
 import { UE, storeUrl, shortIdFromUrl, uuidFromShortId, currentUrl, unwrap, requireLogin } from './_shared.js';
+import { PRICE, PRICE_LEAD, UI } from './_ui.js';
 
 // 店页菜单（DOM：li[data-testid^=store-item-]）。item id 带上店的短 id（store:item），add 时不用再传店。
 cli({
@@ -37,10 +38,10 @@ cli({
         if (seen.has(uuid)) continue; seen.add(uuid);
         const a = li.querySelector('a');
         const txt = t(a || li);
-        const price = (txt.match(/[￥¥][\\d,]+/) || [])[0] || '';
-        const title = txt.split(/[￥¥]/)[0].replace(/売り切れ.*$/, '').replace(/•/g, '').trim();
+        const price = (txt.match(${PRICE}) || [])[0] || '';
+        const title = txt.split(${PRICE})[0].replace(${UI.soldOutTail}, '').replace(/•/g, '').trim();
         const sec = li.closest('[data-testid=store-catalog-section-vertical-grid]')?.querySelector('[data-testid=catalog-section-title]');
-        items.push({ uuid, title, price, section: t(sec), quick: !!li.querySelector('[data-testid=quick-add-button]'), sold_out: /売り切れ/.test(txt) });
+        items.push({ uuid, title, price, section: t(sec), quick: !!li.querySelector('[data-testid=quick-add-button]'), sold_out: ${UI.soldOut}.test(txt) });
       }
       return { storeTitle, items, grocery: !lis.length && !!document.querySelector('[data-testid^="store-item-"]') };
     })()`));
@@ -48,7 +49,7 @@ cli({
     let searched = false;
     if (items?.grocery) {
       // 超市 / 便利店 / 药店（2026-10-05 侦察）：商品卡是 div[data-testid=store-item-]、链接包在外层 <a>，文字价在前
-      //（「10% オフ ￥161 ￥179 アクエリアス(950ml)」）；首页只有几排推荐，整店要走店内搜索页——真店名路径 + /店 uuid?storeSearchQuery=
+      //（「10% オフ ￥161 ￥179 アクエリアス(950ml)」/「$3.49 $3.99 Gatorade」）；首页只有几排推荐，整店要走店内搜索页——真店名路径 + /店 uuid?storeSearchQuery=
       //（短 id 的 /store/s/ 会跳转、把参数丢掉）。id 带上货架 uuid（store:item:section:subsection），add 靠它直接开商品框
       if (kwargs.query) {
         // 真店名路径要从页面上读：opencli 的 getCurrentUrl 回的是上一次 goto 的地址（/store/s/…），不是跳转后的
@@ -67,7 +68,7 @@ cli({
           try { ctx = JSON.parse(decodeURIComponent(new URLSearchParams((el.closest('a')?.getAttribute('href') || '').split('?')[1] || '').get('modctx') || '%7B%7D')); } catch (e) { /* 没上下文就只给 store:item */ }
           const txt = t(el);
           const sec = el.closest('[data-testid=store-desktop-catalog-section-carousel]')?.querySelector('[data-testid=catalog-section-title]');
-          out.push({ uuid, title: txt.replace(/^.*[￥¥][\\d,]+\\s*/, '').replace(/以前注文|売り切れ.*$/g, '').trim(), price: (txt.match(/[￥¥][\\d,]+/) || [''])[0], section: t(sec), quick: !!el.querySelector('[data-testid=quick-add-button]'), sold_out: /売り切れ/.test(txt), sectionUuid: ctx.sectionUuid || '', subsectionUuid: ctx.subsectionUuid || '' });
+          out.push({ uuid, title: txt.replace(${PRICE_LEAD}, '').replace(${UI.orderedBefore}, '').replace(${UI.soldOutTail}, '').trim(), price: (txt.match(${PRICE}) || [''])[0], section: t(sec), quick: !!el.querySelector('[data-testid=quick-add-button]'), sold_out: ${UI.soldOut}.test(txt), sectionUuid: ctx.sectionUuid || '', subsectionUuid: ctx.subsectionUuid || '' });
         }
         return out;
       })()`));

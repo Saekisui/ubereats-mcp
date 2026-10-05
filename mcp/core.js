@@ -1,4 +1,4 @@
-// Uber Eats（日本站）MCP 的内核：命令表 / 策略 / 账本 / confirm_token / 下单硬门 / opencli 调用。
+// Uber Eats MCP 的内核：命令表 / 策略 / 账本 / confirm_token / 下单硬门 / opencli 调用。
 // 分层：
 //   层 0 OpenCLI（真 Chrome + 用户的登录态）
 //   层 1 站点脚本 = OpenCLI adapter（adapters/ubereats/，同步到 ~/.opencli/clis/ubereats/）
@@ -19,7 +19,6 @@ export const POLICY_PATH = process.env.UE_POLICY || join(PROJECT_ROOT, "policy.j
 export const LEDGER_PATH = process.env.UE_LEDGER || join(PROJECT_ROOT, "ledger.jsonl");
 
 // ── 命令表：工具 → opencli 参数（不含 --format json）────────────────────
-export const CHECKOUT_URL = "https://www.ubereats.com/jp/checkout";
 export const CMD = {
   whoami: () => ["ubereats", "whoami"],
   search: ({ query, limit }) => ["ubereats", "search", query, "--limit", String(limit || 10)],
@@ -42,6 +41,7 @@ export function readPolicy(path = POLICY_PATH) {
     maxPerOrder: num(p.maxPerOrder),
     maxPerDay: num(p.maxPerDay),
     tokenTtlMin: Number(p.tokenTtlMin) > 0 ? Number(p.tokenTtlMin) : 10,
+    timezone: p.timezone ? String(p.timezone) : undefined,   // 「当天」按哪个时区算（IANA，如 Asia/Tokyo）；不写 = 这台电脑的时区
   };
 }
 
@@ -56,12 +56,14 @@ export function readLedger(path = LEDGER_PATH) {
   if (!existsSync(path)) return [];
   return readFileSync(path, "utf-8").split("\n").filter(Boolean).map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
 }
-export function jstDateKey(now = Date.now()) { return new Date(now + 9 * 3600 * 1000).toISOString().slice(0, 10); }
-// 当天（JST）已下单总额——只算 place 成功的
-export function spentToday({ now = Date.now(), path = LEDGER_PATH } = {}) {
-  const today = jstDateKey(now);
+export function dateKey(ms = Date.now(), timeZone) {
+  return new Intl.DateTimeFormat("sv-SE", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(ms);
+}
+// 当天已下单总额——只算 place 成功的
+export function spentToday({ now = Date.now(), path = LEDGER_PATH, timeZone } = {}) {
+  const today = dateKey(now, timeZone);
   return readLedger(path)
-    .filter((e) => e.tool === "ue_place" && e.ok && jstDateKey(Date.parse(e.ts)) === today)
+    .filter((e) => e.tool === "ue_place" && e.ok && dateKey(Date.parse(e.ts), timeZone) === today)
     .reduce((s, e) => s + (Number(e.total) || 0), 0);
 }
 

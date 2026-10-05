@@ -1,10 +1,12 @@
-// Uber Eats（日本站）OpenCLI adapter 公用件。
+// Uber Eats OpenCLI adapter 公用件（界面语言 / 价格 / 按钮文字在 _ui.js）。
 // 读：页内 fetch 用户登录态下的 /_p/api/*（getSearchFeedV1 / getDraftOrdersByEaterUuidV1 / getCartsViewForEaterUuidV1 / getActiveOrdersV1）
 // 写：页面真输入（quick-add-button / 模态框选项 + add-to-cart-button / place-order-btn）
 // 用 scripts/sync-adapters.sh 复制到 ~/.opencli/clis/ubereats/ 给 OpenCLI 加载（OpenCLI 不认软链目录）。
 import { AuthRequiredError, CommandExecutionError } from '@jackwener/opencli/errors';
+import { localeOf, parseMoney, PRICE, UI } from './_ui.js';
 
 export const UE = 'https://www.ubereats.com';
+export const LOCALE = localeOf();   // { prefix: '' | '/jp', code: 'en-US' | 'jp' }
 
 // page.evaluate 在不同版本里可能直接回值、也可能包一层 {value}
 export function unwrap(raw) {
@@ -21,7 +23,7 @@ export async function currentUrl(page) {
 export async function ensureUE(page) {
   const url = await currentUrl(page);
   if (!/ubereats\.com/.test(url)) {
-    await page.goto(`${UE}/jp/feed`);
+    await page.goto(`${UE}${LOCALE.prefix}/feed`);
     await page.wait(3);
   }
 }
@@ -30,7 +32,7 @@ export async function ensureUE(page) {
 export async function api(page, name, body = {}) {
   const js = `(async () => {
     try {
-      const r = await fetch('/_p/api/${name}?localeCode=jp', { method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json', 'x-csrf-token': 'x' }, body: ${JSON.stringify(JSON.stringify(body))} });
+      const r = await fetch('/_p/api/${name}?localeCode=${LOCALE.code}', { method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json', 'x-csrf-token': 'x' }, body: ${JSON.stringify(JSON.stringify(body))} });
       const t = await r.text();
       return { status: r.status, text: t };
     } catch (e) { return { status: 0, text: String(e) }; }
@@ -66,15 +68,15 @@ export function storeUrl(id) {
   const s = String(id || '').trim();
   if (!s) throw new CommandExecutionError('store id required');
   if (/^https?:\/\//.test(s)) return s;
-  if (s.startsWith('/')) return `${UE}${s.startsWith('/jp/') ? '' : '/jp'}${s}`;
-  return `${UE}/jp/store/s/${encodeURIComponent(s)}`;
+  if (s.startsWith('/')) return `${UE}${!LOCALE.prefix || s.startsWith(`${LOCALE.prefix}/`) ? '' : LOCALE.prefix}${s}`;
+  return `${UE}${LOCALE.prefix}/store/s/${encodeURIComponent(s)}`;
 }
 export function shortIdFromUrl(url) {
   const m = String(url || '').match(/\/store\/[^/?#]+\/([^/?#]+)/);
   return m ? m[1] : null;
 }
 
-export const yen = (v) => { const n = Number(String(v ?? '').replace(/[^\d.]/g, '')); return Number.isFinite(n) ? n : null; };
+export { parseMoney };
 
 // 购物车列表：draft orders（明细）+ carts view（店名）合并
 export async function loadCarts(page) {
@@ -117,7 +119,7 @@ const rich = (v) => {
   if (v.title !== undefined && typeof v.title !== 'object') return String(v.title);
   return '';
 };
-const money = (v) => { if (v == null) return ''; if (typeof v === 'string') return v; if (v.formattedValue) return v.formattedValue; if (v.textFormat) return String(v.textFormat).replace(/<[^>]+>/g, '').trim(); if (v.text) return rich(v.text); if (v.value) return money(v.value); if (Number.isFinite(v.amountE5)) return `¥${Math.round(v.amountE5 / 1e5)}`; return ''; };
+const money = (v) => { if (v == null) return ''; if (typeof v === 'string') return v; if (v.formattedValue) return v.formattedValue; if (v.textFormat) return String(v.textFormat).replace(/<[^>]+>/g, '').trim(); if (v.text) return rich(v.text); if (v.value) return money(v.value); if (Number.isFinite(v.amountE5)) return String(v.amountE5 / 1e5); return ''; };
 const decimalQty = (q) => { const c = q?.value?.coefficient || q?.coefficient; if (!c) return Number(q) || 1; const coef = (Number(c.high) || 0) * 4294967296 + (Number(c.low) || 0); const exp = q?.value?.exponent ?? q?.exponent ?? -5; const n = coef * Math.pow(10, exp); return Number.isFinite(n) && n > 0 ? n : 1; };
 
 export async function checkoutPresentation(page, draftId) {
@@ -141,10 +143,10 @@ export async function checkoutPresentation(page, draftId) {
   const loc = cp.locationInfo || {};
   const addrTitle = rich(loc.address?.title);
   const addrSub = rich(loc.address?.subtitle);
-  const addressMissing = !addrTitle || /現在地|住所を入力|Enter.*address/i.test(`${addrTitle} ${addrSub}`);
+  const addressMissing = !addrTitle || UI.addressMissing.test(`${addrTitle} ${addrSub}`);
   const totalText = money(cp.total?.total);
   return {
-    totalText, total: yen(totalText),
+    totalText, total: parseMoney(totalText),
     subtotal: money(cp.subtotal?.subtotal),
     charges, items,
     eta: [rich(cp.eta?.rangeText), rich(cp.eta?.scheduleText)].filter(Boolean).join(' / '),
@@ -209,12 +211,12 @@ export function uuidFromShortId(id) {
 
 // 把目标车变成「活跃车」并走到它的结算页（place 用）——2026-08-22 夜定稿的路径：
 //   店页（店 uuid → 短 id）→ 头部购物车按钮（aria「N 個の商品」，店内专属，包着 view-carts-badge）→ 面板「お会計に進む」
-//   （go-to-checkout-button）→ /jp/checkout 渲染的就是这家店的车。
+//   （go-to-checkout-button）→ /checkout 渲染的就是这家店的车。
 //   不走 feed 抽屉：那条要按店名匹配 menuitem，而且 feed 头部异步渲染很飘。
 export async function openCheckoutViaStore(page, storeUuid) {
   const sid = shortIdFromUuid(storeUuid);
   if (!sid) throw new CommandExecutionError(`bad store uuid: ${storeUuid}`);
-  await page.goto(`${UE}/jp/store/s/${sid}`);
+  await page.goto(`${UE}${LOCALE.prefix}/store/s/${sid}`);
   let clicked = false; let env = null;
   for (let i = 0; i < 30; i += 1) {
     await page.wait(1);
@@ -231,7 +233,7 @@ export async function openCheckoutViaStore(page, storeUuid) {
   let ready = false;
   for (let i = 0; i < 12; i += 1) { await page.wait(1); ready = !!unwrap(await page.evaluate(`!!document.querySelector('[data-testid=go-to-checkout-button]')`)); if (ready) break; }
   if (!ready) throw new CommandExecutionError('cart panel (go-to-checkout-button) did not appear on store page');
-  const probe = async () => unwrap(await page.evaluate(`(() => { const el = document.querySelector('[data-testid=fare-breakdown-total-label]'); return { total: !!(el && /[￥¥]\\d/.test((el.parentElement || el).innerText || '')), url: location.href.slice(0, 120), goBtn: !!document.querySelector('[data-testid=go-to-checkout-button]') }; })()`));
+  const probe = async () => unwrap(await page.evaluate(`(() => { const el = document.querySelector('[data-testid=fare-breakdown-total-label]'); return { total: !!(el && ${PRICE}.test((el.parentElement || el).innerText || '')), url: location.href.slice(0, 120), goBtn: !!document.querySelector('[data-testid=go-to-checkout-button]') }; })()`));
   const clickVia = await nativeClickSelector(page, '[data-testid=go-to-checkout-button]');
   let st = null;
   for (let i = 0; i < 25; i += 1) {
@@ -259,9 +261,9 @@ async function readCheckoutDom(page) {
     const totalText = t(document.querySelector('[data-testid=fare-breakdown-total-label]')?.parentElement);
     const placeBtn = document.querySelector('[data-testid=place-order-btn]');
     return {
-      totalText: (totalText.match(/[￥¥][\\d,]+/) || [''])[0],
+      totalText: (totalText.match(${PRICE}) || [''])[0],
       storeHrefs: [...new Set([...document.querySelectorAll('a[href*="/store/"]')].map((a) => decodeURIComponent(a.getAttribute('href') || '')))].slice(0, 3),
-      address: t(document.querySelector('[data-testid=checkout-delivery-address-section]')).replace(/編集/g, '').trim(),
+      address: t(document.querySelector('[data-testid=checkout-delivery-address-section]')).replace(/編集|Edit/g, '').trim(),
       placeBtnText: t(placeBtn), placeBtnDisabled: !placeBtn || placeBtn.disabled || placeBtn.getAttribute('aria-disabled') === 'true',
       url: location.href,
     };

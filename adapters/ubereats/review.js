@@ -1,9 +1,9 @@
 import { cli, Strategy } from '@jackwener/opencli/registry';
 import { CommandExecutionError } from '@jackwener/opencli/errors';
-import { UE, requireLogin, loadCarts, checkoutPresentation, draftByUuid, paymentLabel } from './_shared.js';
+import { UE, LOCALE, requireLogin, loadCarts, checkoutPresentation, draftByUuid, paymentLabel } from './_shared.js';
 
 // 结算快照（唯一可信价）——2026-08-22 修复「串台」（见 PITFALLS.md）：
-//   旧版抠 /jp/checkout 页面 DOM，而那页无视 draftOrderUUID 参数、永远渲染「活跃车」→ A 店的品配 B 店的钱。
+//   旧版抠 /checkout 页面 DOM，而那页无视 draftOrderUUID 参数、永远渲染「活跃车」→ A 店的品配 B 店的钱。
 //   新版不碰页面：费用 / 合计 / 商品 / 地址 / ETA 全部来自按 draft 键的 getCheckoutPresentationV1（页面切车时自己发的同一个接口）。
 // 防串台硬校验：两条独立路子互相当锚——
 //   ① getDraftOrderByUuidV2 的 storeUuid 必须 == 购物车列表（getDraftOrdersByEaterUuidV1）里该 draft 的 store_id
@@ -63,7 +63,7 @@ cli({
   columns: ['field', 'value'],
   navigateBefore: false,
   func: async (page, kwargs) => {
-    await page.goto(`${UE}/jp/feed`);
+    await page.goto(`${UE}${LOCALE.prefix}/feed`);
     await page.wait(3);
     await requireLogin(page);
     const carts = await loadCarts(page);

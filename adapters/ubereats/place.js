@@ -1,6 +1,7 @@
 import { cli, Strategy } from '@jackwener/opencli/registry';
 import { CommandExecutionError } from '@jackwener/opencli/errors';
-import { UE, unwrap, requireLogin, api, loadCarts, currentUrl, nativeClickSelector, openCheckoutViaStore, checkoutDomFacts, yen, readLocCookie, metersBetween } from './_shared.js';
+import { UE, unwrap, requireLogin, api, loadCarts, currentUrl, nativeClickSelector, openCheckoutViaStore, checkoutDomFacts, parseMoney, readLocCookie, metersBetween } from './_shared.js';
+import { PRICE, UI } from './_ui.js';
 import { reviewSnapshot } from './review.js';
 
 // 真下单（写·重）。只被 MCP 的 ue_place 调：那边已验 confirm_token + 上限 + 接口快照再读一次。
@@ -56,14 +57,14 @@ cli({
       if (!dlg) return { dialog: false, pageBtnText: t(pageBtn), url: location.href };
       const btns = [...dlg.querySelectorAll('button, [role=button]')].map((b, i) => ({ i, text: t(b).slice(0, 40), tid: b.dataset.testid || null, aria: b.getAttribute('aria-label') || null }));
       const head = t(dlg).slice(0, 80);
-      const isUpsell = /注文の品をすべて揃える|一緒にいかが|おすすめ|追加しますか/.test(head) || btns.filter((b) => b.tid === 'quick-add-button').length >= 2;
-      const skip = btns.find((b) => /^(スキップ|このまま注文する|注文に進む|Skip|No thanks|結構です)$/.test(b.text));
-      const close = btns.find((b) => b.tid === 'close-button' || /^(閉じる|Close)$/.test(b.aria || ''));
-      const confirm = btns.find((b) => /注文を確定|注文する|確定する|Place order/.test(b.text) && !/最終確認し、次へ/.test(b.text) && !/[￥¥]\\d/.test(b.text));
+      const isUpsell = ${UI.upsellHead}.test(head) || btns.filter((b) => b.tid === 'quick-add-button').length >= 2;
+      const skip = btns.find((b) => ${UI.skip}.test(b.text));
+      const close = btns.find((b) => b.tid === 'close-button' || ${UI.closeAria}.test(b.aria || ''));
+      const confirm = btns.find((b) => ${UI.placeFinal}.test(b.text) && !${UI.placeStep1}.test(b.text) && !${PRICE}.test(b.text));
       // 地址确认框：点下单键后 Uber 先让确认配送地址。只认 aria 里带着接口地址开头的那个地址项（= 已选地址），别的不碰
-      const isAddress = /選択した住所|保存済みの住所|配達先|お届け先/.test(head);
+      const isAddress = ${UI.addressHead}.test(head);
       const addrKey = ${JSON.stringify((cp.address || '').slice(0, 6))};
-      const addr = isAddress && addrKey ? btns.find((b) => (b.aria || '').includes(addrKey) && !/編集|Edit/.test(b.aria || '')) : null;
+      const addr = isAddress && addrKey ? btns.find((b) => (b.aria || '').includes(addrKey) && !${UI.editAria}.test(b.aria || '')) : null;
       // 给认出的三个目标打标记（先清旧标记），外面按标记点，不按索引——索引/nth-of-type 对不上就会点到商品按钮
       const els = [...dlg.querySelectorAll('button, [role=button]')];
       for (const e of els) e.removeAttribute('data-ue-target');
@@ -71,7 +72,7 @@ cli({
       if (close) els[close.i].setAttribute('data-ue-target', 'close');
       if (confirm) els[confirm.i].setAttribute('data-ue-target', 'confirm');
       if (addr) els[addr.i].setAttribute('data-ue-target', 'addr');
-      return { dialog: true, head, isUpsell, isAddress, addr: addr || null, skip: skip || null, close: close || null, confirm: confirm || null, buttons: btns.filter((b) => !/[￥¥]\\d/.test(b.text) && b.tid !== 'quick-add-button'), nItemButtons: btns.filter((b) => /[￥¥]\\d/.test(b.text) || b.tid === 'quick-add-button').length, pageBtnText: t(pageBtn), url: location.href };
+      return { dialog: true, head, isUpsell, isAddress, addr: addr || null, skip: skip || null, close: close || null, confirm: confirm || null, buttons: btns.filter((b) => !${PRICE}.test(b.text) && b.tid !== 'quick-add-button'), nItemButtons: btns.filter((b) => ${PRICE}.test(b.text) || b.tid === 'quick-add-button').length, pageBtnText: t(pageBtn), url: location.href };
     })()`;
     const clickDialogButton = async (kind) => nativeClickSelector(page, `[role=dialog] [data-ue-target="${kind}"]`);
     const trail = [loc ? `loc-cookie「${loc.title}」${dist != null ? ` ${dist}m` : ''} ✓` : 'loc-cookie 读不到'];
@@ -85,17 +86,17 @@ cli({
         const via = await clickDialogButton(kind);
         trail.push(`arrival-upsell=「${d0.head.slice(0, 20)}」 ${kind}=${via}（商品按钮 ${d0.nItemButtons} 个未碰）`);
         await page.wait(3);
-      } else if (d0?.dialog && /営業時間外|配達時間を指定|予約/.test(d0.head)) {
+      } else if (d0?.dialog && UI.closedHead.test(d0.head)) {
         throw new CommandExecutionError(`店铺打烊：Uber 要求预约配送时间（「${d0.head.slice(0, 40)}…」）——脚本不替人预约，换店或等开门`);
-      } else if (d0?.dialog && /店舗を利用できません|注文を受け付けていません/.test(d0.head)) {
+      } else if (d0?.dialog && UI.unavailableHead.test(d0.head)) {
         throw new CommandExecutionError(`店家现在不接单（「${d0.head.slice(0, 40)}…」）——没下单，换店或晚点再来`);
       } else if (d0?.dialog) {
         throw new CommandExecutionError(`到结算页就弹了认不出的框，停住：「${d0.head}」 按钮=${JSON.stringify(d0.buttons)}`);
       }
     }
     const dom = await checkoutDomFacts(page);
-    const domTotal = yen(dom.totalText);
-    if (domTotal == null || domTotal !== cp.total) {
+    const domTotal = parseMoney(dom.totalText);
+    if (domTotal == null || !(Math.abs(domTotal - cp.total) < 0.005)) {
       throw new CommandExecutionError(`结算页合计（${dom.totalText || '读不到'}）≠ 接口合计（${cp.totalText}）——页面上不是这辆车，不下单`);
     }
     if (cp.address && dom.address && !dom.address.includes(cp.address.slice(0, 6))) {
@@ -124,10 +125,10 @@ cli({
       await page.wait(4);
       d = unwrap(await page.evaluate(dlgJs));
     }
-    if (d?.dialog && /営業時間外|配達時間を指定|予約/.test(d.head)) {
+    if (d?.dialog && UI.closedHead.test(d.head)) {
       throw new CommandExecutionError(`店铺打烊：Uber 要求预约配送时间（「${d.head.slice(0, 40)}…」）——脚本不替人预约`);
     }
-    if (d?.dialog && /住所情報|ピンの位置|ピンを調整|建物|部屋番号/.test(d.head)) {
+    if (d?.dialog && UI.pinHead.test(d.head)) {
       throw new CommandExecutionError(`Uber 要确认楼栋/针位（「${d.head.slice(0, 30)}…」）：当前位置 cookie 与车地址不一致。框里的 保存/編集/削除 都写地址簿，脚本不碰——在 Chrome 里切好位置后重新 review → place。按钮=${JSON.stringify(d.buttons)}`);
     }
     if (d?.dialog && d.isAddress) {
@@ -147,11 +148,14 @@ cli({
       via2 = await clickDialogButton('confirm');
       trail.push(`confirm=「${d.confirm.text}」 click2=${via2}`);
       await page.wait(8);
-    } else if (/注文を確定|注文する|確定する|Place order/.test(d?.pageBtnText || '') && !/最終確認し、次へ/.test(d?.pageBtnText || '')) {
+    } else if (UI.placeFinal.test(d?.pageBtnText || '') && !UI.placeStep1.test(d?.pageBtnText || '') && d.pageBtnText !== dom.placeBtnText) {
+      // 只有键上的字真的变了（第一步 →「…注文を確定する」）才按第二下。字没变 = 可能第一下已经下成、页面还没跳走，再按就是第二单
       via2 = await nativeClickSelector(page, '[data-testid=place-order-btn]');
       trail.push(`final=「${d.pageBtnText}」 click2=${via2}`);
       await page.wait(8);
-    } else if (/最終確認し、次へ/.test(d?.pageBtnText || '')) {
+    } else if (d?.pageBtnText && d.pageBtnText === dom.placeBtnText && !UI.placeStep1.test(d.pageBtnText)) {
+      trail.push(`page-btn unchanged「${d.pageBtnText.slice(0, 30)}」→ 不按第二下，去查订单`);
+    } else if (UI.placeStep1.test(d?.pageBtnText || '')) {
       // 页面键没变、也没弹框 → 再点一次（upsell 跳过后有时要再按一下）
       via2 = await nativeClickSelector(page, '[data-testid=place-order-btn]');
       trail.push(`again=「${d.pageBtnText}」 click2=${via2}`);
@@ -159,7 +163,7 @@ cli({
       const d2 = unwrap(await page.evaluate(dlgJs));
       if (d2?.dialog && d2.confirm) { const v3 = await clickDialogButton('confirm'); trail.push(`confirm=「${d2.confirm.text}」 click3=${v3}`); await page.wait(8); }
       else if (d2?.dialog) throw new CommandExecutionError(`再点一次后弹了认不出的框，停住：「${d2.head}」 按钮=${JSON.stringify(d2.buttons)}`);
-      else if (/注文を確定|注文する|確定する/.test(d2?.pageBtnText || '') && !/最終確認し、次へ/.test(d2?.pageBtnText || '')) { const v3 = await nativeClickSelector(page, '[data-testid=place-order-btn]'); trail.push(`final=「${d2.pageBtnText}」 click3=${v3}`); await page.wait(8); }
+      else if (UI.placeFinal.test(d2?.pageBtnText || '') && !UI.placeStep1.test(d2?.pageBtnText || '') && d2.pageBtnText !== d.pageBtnText) { const v3 = await nativeClickSelector(page, '[data-testid=place-order-btn]'); trail.push(`final=「${d2.pageBtnText}」 click3=${v3}`); await page.wait(8); }
     }
     const url = await currentUrl(page);
     // ── 成功判定：不能只读一次。2026-08-22 22:17 实测——单其实下成了，但点完立刻读 getActiveOrdersV1

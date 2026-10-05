@@ -1,30 +1,30 @@
 #!/usr/bin/env node
-// ubereats-jp MCP server —— 让 AI 在用户自己的 Chrome 里帮忙点 Uber Eats（日本站）。
+// ubereats MCP server —— 让 AI 在用户自己的 Chrome 里帮忙点 Uber Eats。
 //
 // stdio JSON-RPC 2.0，每行一个 message，stderr 走日志。直接调 OpenCLI（用户的真 Chrome + 真登录态），内核在 core.js。
 // 工具：ue_policy / ue_search / ue_store / ue_add / ue_cart / ue_review / ue_place / ue_orders
 // 下单链：ue_review 发 confirm_token → 用户在对话里明确点头 → ue_place（再读一次结算快照，总价 / 店名 / 购物车一致、不超上限才下）。
 //
-// 启动：node mcp/server.js    环境变量：OPENCLI_BIN（可选，默认 ~/.npm-global/bin/opencli）、UE_POLICY / UE_LEDGER（可选，改策略 / 账本路径）
+// 启动：node mcp/server.js    环境变量：UE_LOCALE（en 默认 / jp：Uber Eats 界面语言）、OPENCLI_BIN（可选，默认 ~/.npm-global/bin/opencli）、UE_POLICY / UE_LEDGER（可选，改策略 / 账本路径）
 import readline from "node:readline";
 import {
   CMD, readPolicy, appendLedger, spentToday, issueToken, consumeToken, peekToken, assertCanPlace, runOpencli, fmtRows,
 } from "./core.js";
 
 function log(...args) {
-  process.stderr.write(`[ubereats-jp] ${args.map((a) => (typeof a === "string" ? a : JSON.stringify(a))).join(" ")}\n`);
+  process.stderr.write(`[ubereats] ${args.map((a) => (typeof a === "string" ? a : JSON.stringify(a))).join(" ")}\n`);
 }
 function send(message) { process.stdout.write(JSON.stringify(message) + "\n"); }
 
 const TOOLS = [
   {
     name: "ue_policy",
-    description: "Read the ordering policy: whether ordering is enabled, per-order / per-day caps (JPY), how much was already spent today, and whether the user is logged in to Uber Eats in Chrome.\n\nUse this when:\n- You're about to add to cart or place an order — check the caps first.",
+    description: "Read the ordering policy: whether ordering is enabled, per-order / per-day caps (in the account's currency), how much was already spent today, and whether the user is logged in to Uber Eats in Chrome.\n\nUse this when:\n- You're about to add to cart or place an order — check the caps first.",
     inputSchema: { type: "object", properties: {} },
   },
   {
     name: "ue_search",
-    description: "Search Uber Eats Japan (delivers to the account's current address). Works with store names, dishes and products. Product searches (e.g. 'ポカリスエット', '風邪薬') return supermarkets / drugstores together with the matching items and prices.\n\nUse this when:\n- The user asks for delivery ('点个 X' / 'order me X'). Delivery is real food and real money — don't start a delivery order on your own initiative.",
+    description: "Search Uber Eats (delivers to the account's current address; works in any country Uber Eats serves). Works with store names, dishes and products. Product searches (e.g. 'Gatorade', 'ポカリスエット') return supermarkets / drugstores together with the matching items and prices.\n\nUse this when:\n- The user asks for delivery ('点个 X' / 'order me X'). Delivery is real food and real money — don't start a delivery order on your own initiative.",
     inputSchema: {
       type: "object",
       properties: {
@@ -36,7 +36,7 @@ const TOOLS = [
   },
   {
     name: "ue_store",
-    description: "A store's menu: item ids, names, prices, sections, quick-add, sold out.\n\nNotes:\n- Supermarkets / convenience stores / drugstores (ローソン, マルエツ, ウエルシア…) only show a few shelves on their front page — pass query to search inside the store. Their item ids are long (store:item:section:subsection); pass them to ue_add unchanged.",
+    description: "A store's menu: item ids, names, prices, sections, quick-add, sold out.\n\nNotes:\n- Supermarkets / convenience stores / drugstores only show a few shelves on their front page — pass query to search inside the store. Their item ids are long (store:item:section:subsection); pass them to ue_add unchanged.",
     inputSchema: {
       type: "object",
       properties: {
@@ -48,7 +48,7 @@ const TOOLS = [
   },
   {
     name: "ue_add",
-    description: "Add one item to the cart (a write action). spec = option keywords, space-separated, one per option group (e.g. 'コーラ ポテト(L)'; multi-level options are matched level by level); qty = quantity 1-10. Confirm with ue_cart afterwards.\n\nNotes:\n- Uber Eats keeps one cart per store; several carts can exist at once.\n- Adding is not buying. Confirm with the user before adding anything.",
+    description: "Add one item to the cart (a write action). spec = option keywords, space-separated, one per option group (e.g. 'Coke Large' / 'コーラ ポテト(L)'; multi-level options are matched level by level); qty = quantity 1-10. Confirm with ue_cart afterwards.\n\nNotes:\n- Uber Eats keeps one cart per store; several carts can exist at once.\n- Adding is not buying. Confirm with the user before adding anything.",
     inputSchema: {
       type: "object",
       properties: {
@@ -113,7 +113,7 @@ async function dispatch(name, args) {
     try { const who = await run("whoami"); login = (Array.isArray(who) ? who[0] : who)?.logged_in === false ? "未登录（在 Chrome 里登一下 ubereats.com）" : "已登录"; }
     catch (e) { login = `查不到（${e.message.slice(0, 60)}）`; }
     return {
-      text: `下单：${policy.enabled ? "开" : "关"} · 单笔上限 ${policy.maxPerOrder ?? "无"} · 当日上限 ${policy.maxPerDay ?? "无"} JPY · 今天已下 ${spentToday()} · ${login}\ntoken 有效期 ${policy.tokenTtlMin} 分钟。地址 / 支付只用账号默认项；价格只信 ue_review。`,
+      text: `下单：${policy.enabled ? "开" : "关"} · 单笔上限 ${policy.maxPerOrder ?? "无"} · 当日上限 ${policy.maxPerDay ?? "无"}（账号币种）· 今天已下 ${spentToday({ timeZone: policy.timezone })} · ${login}\ntoken 有效期 ${policy.tokenTtlMin} 分钟。地址 / 支付只用账号默认项；价格只信 ue_review。`,
       summary: "policy",
     };
   }
@@ -140,7 +140,7 @@ async function dispatch(name, args) {
     const { total, store, draft } = pickReviewFacts(rows);
     const token = issueToken({ total, store, draft, ttlMin: policy.tokenTtlMin });
     return {
-      text: `结算快照（只信这个价）：\n${fmtRows(rows)}\n\n总价 ${Number.isFinite(total) ? total : "读不到"} JPY${store ? ` · 店「${store}」` : ""}\n用户点头后：ue_place(confirm_token="${token}")（${policy.tokenTtlMin} 分钟内有效；总价 / 店名变了会拒）`,
+      text: `结算快照（只信这个价）：\n${fmtRows(rows)}\n\n总价 ${Number.isFinite(total) ? total : "读不到"}${store ? ` · 店「${store}」` : ""}\n用户点头后：ue_place(confirm_token="${token}")（${policy.tokenTtlMin} 分钟内有效；总价 / 店名变了会拒）`,
       summary: `review total=${total}`, total: Number.isFinite(total) ? total : undefined,
     };
   }
@@ -152,11 +152,11 @@ async function dispatch(name, args) {
     const rows = await run("review", { draft: t0.draft || undefined });
     const { total, store, draft } = pickReviewFacts(rows);
     consumeToken(args.confirm_token, { total, store, draft });
-    assertCanPlace({ policy, total, spentSoFar: spentToday() });
+    assertCanPlace({ policy, total, spentSoFar: spentToday({ timeZone: policy.timezone }) });
     let placed;
     try { placed = await run("place", { draft }); }
     catch (e) { throw new Error(`${e.message}\n⚠️ 下单状态不明：过了硬门之后的报错（含超时）都可能发生在按完最终确认之后。先 ue_orders 查有没有这单，查到才算数；别重按 ue_place。`); }
-    return { text: `下单结果：\n${fmtRows(placed)}\n\n总价 ${total} JPY${store ? ` · 店「${store}」` : ""}。用 ue_orders 确认并跟配送。`, summary: `place total=${total} store=${store}`, total };
+    return { text: `下单结果：\n${fmtRows(placed)}\n\n总价 ${total}${store ? ` · 店「${store}」` : ""}。用 ue_orders 确认并跟配送。`, summary: `place total=${total} store=${store}`, total };
   }
   if (name === "ue_orders") {
     return { text: fmtRows(await run("orders")), summary: "orders" };
@@ -169,7 +169,7 @@ async function handle(msg) {
   const { id, method, params } = msg;
   try {
     if (method === "initialize") {
-      send({ jsonrpc: "2.0", id, result: { protocolVersion: "2024-11-05", capabilities: { tools: {} }, serverInfo: { name: "ubereats-jp", version: "0.1.0" } } });
+      send({ jsonrpc: "2.0", id, result: { protocolVersion: "2024-11-05", capabilities: { tools: {} }, serverInfo: { name: "ubereats", version: "0.1.0" } } });
       return;
     }
     if (method === "tools/list") { send({ jsonrpc: "2.0", id, result: { tools: TOOLS } }); return; }
