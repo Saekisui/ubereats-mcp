@@ -1,5 +1,9 @@
 # ubereats-jp-mcp
 
+![让 AI 帮你点外卖](assets/cover.png)
+
+**介绍页：<https://saekisui.github.io/ubereats-jp-mcp/>**
+
 让 AI 在**你自己的 Chrome** 里帮你点 Uber Eats（日本站）：搜店 / 搜商品、看菜单、加购、看结算快照，**你点头之后**才下单，下单后跟配送。
 
 一个 MCP server + 一套 [OpenCLI](https://github.com/jackwener/opencli) adapter。AI 用的是你 Chrome 里的真实登录态，地址和支付方式只用账号里已经存好的，对话里从不出现卡号或地址。

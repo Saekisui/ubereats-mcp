@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>让 AI 帮你点外卖 · ubereats-jp-mcp</title>
+<meta name="description" content="一个 MCP server + 一套 OpenCLI adapter：AI 在你自己的 Chrome 里帮你点 Uber Eats（日本站）——搜店、挑菜、看结算快照，你点头才下单。">
+<meta name="theme-color" content="#f9f6f2">
+<meta property="og:type" content="website">
+<meta property="og:title" content="让 AI 帮你点外卖">
+<meta property="og:description" content="Uber Eats 日本站 · MCP —— 搜店、挑菜、看结算快照，你点头才下单。">
+<meta property="og:url" content="https://saekisui.github.io/ubereats-jp-mcp/">
+<meta property="og:image" content="https://saekisui.github.io/ubereats-jp-mcp/assets/cover.png">
+<meta property="og:image:width" content="2400">
+<meta property="og:image:height" content="1260">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://saekisui.github.io/ubereats-jp-mcp/assets/cover.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    color-scheme: light;
+    --paper: #f9f6f2;
+    --card: rgba(255, 255, 255, .58);
+    --card-edge: rgba(255, 255, 255, .9);
+    --ink: #2b2a30;
+    --ink-soft: #625e66;
+    --faint: #a39da1;
+    --line: rgba(60, 40, 50, .09);
+    --rose: #b9828f;
+    --rose-deep: #9c6876;
+    --rose-tint: rgba(185, 130, 143, .13);
+    --code: rgba(43, 42, 48, .045);
+    --shadow: 0 1px 2px rgba(60, 40, 50, .04), 0 10px 30px rgba(120, 90, 100, .08);
+    --cn: "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+    --latin: "Manrope", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font: 400 16px/1.8 var(--latin); -webkit-font-smoothing: antialiased;
+  }
+  /* 两团很淡的光，玻璃卡才有东西可磨 */
+  body::before {
+    content: ""; position: fixed; inset: -20% -20% auto auto; width: 70vmax; height: 70vmax; z-index: -1; pointer-events: none;
+    background: radial-gradient(closest-side, rgba(214, 176, 184, .35), transparent), radial-gradient(closest-side at 20% 120%, rgba(238, 226, 210, .7), transparent);
+    filter: blur(40px);
+  }
+  a { color: var(--rose-deep); text-decoration: none; border-bottom: 1px solid rgba(156, 104, 118, .3); }
+  a:hover { border-bottom-color: var(--rose-deep); }
+  code { font: 400 .88em/1.6 var(--mono); background: var(--code); padding: .12em .4em; border-radius: 6px; color: var(--ink); }
+
+  .wrap { max-width: 760px; margin: 0 auto; padding: 0 16px 72px; }
+  .glass {
+    background: var(--card); border: 1px solid var(--card-edge); box-shadow: var(--shadow);
+    backdrop-filter: blur(20px) saturate(140%); -webkit-backdrop-filter: blur(20px) saturate(140%);
+  }
+
+  /* ── 头 ── */
+  .cover { display: block; width: 100%; height: auto; margin-top: 20px; border-radius: 22px; box-shadow: var(--shadow); aspect-ratio: 40 / 21; background: #f3eee9; }
+  header { padding: 44px 4px 8px; }
+  .kicker { font: 500 12.5px/1 var(--latin); letter-spacing: .16em; color: var(--faint); text-transform: uppercase; }
+  .kicker span { font-family: var(--cn); letter-spacing: .1em; }
+  h1 { margin: 20px 0 0; font: 200 clamp(40px, 10vw, 64px)/1.22 var(--cn); letter-spacing: .05em; }
+  h1 .latin { font-family: var(--latin); font-weight: 300; letter-spacing: .02em; }
+  .nod { margin-top: 18px; font: 300 19px/1.4 var(--cn); letter-spacing: .14em; color: var(--rose-deep); }
+  .by { margin-top: 26px; font: 400 13px/1 var(--latin); color: var(--faint); letter-spacing: .06em; }
+  .by b { font: 400 13px/1 var(--cn); color: var(--ink-soft); letter-spacing: .1em; }
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 26px; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 11px 18px; border-radius: 999px; border: 1px solid var(--card-edge);
+    font: 500 14px/1 var(--latin); color: var(--ink); background: var(--card); box-shadow: var(--shadow); }
+  .btn.primary { background: var(--rose); border-color: var(--rose); color: #fff; }
+  .btn:hover { border-bottom-color: var(--card-edge); transform: translateY(-1px); }
+  .btn svg { width: 16px; height: 16px; }
+
+  .intro { margin-top: 36px; padding: 22px 24px; border-radius: 20px; font: 300 16.5px/1.95 var(--cn); color: var(--ink-soft); }
+  .intro b { font-weight: 500; color: var(--ink); }
+
+  /* ── 节 ── */
+  section { margin-top: 64px; }
+  h2 { margin: 0 4px 6px; font: 300 26px/1.3 var(--cn); letter-spacing: .08em; }
+  .eyebrow { margin: 0 4px 22px; font: 500 11.5px/1 var(--latin); letter-spacing: .16em; color: var(--rose); text-transform: uppercase; }
+  p.lead { margin: 0 4px 22px; font: 300 15.5px/1.9 var(--cn); color: var(--ink-soft); }
+
+  /* 一单怎么走：对话 */
+  .chat { display: flex; flex-direction: column; gap: 12px; padding: 22px 18px; border-radius: 24px; }
+  .b { max-width: 84%; padding: 11px 16px; border-radius: 18px; font: 400 15.5px/1.55 var(--cn); }
+  .me { align-self: flex-end; border-bottom-right-radius: 6px; background: var(--rose-tint); border: 1px solid rgba(255, 255, 255, .8); }
+  .bot { align-self: flex-start; border-bottom-left-radius: 6px; background: rgba(255, 255, 255, .78); border: 1px solid rgba(255, 255, 255, .95); box-shadow: 0 1px 2px rgba(60, 40, 50, .04); }
+  .tool { align-self: flex-start; margin: -4px 0 2px 12px; font: 500 11px/1 var(--latin); letter-spacing: .06em; color: var(--rose); }
+  .tool.r { align-self: flex-end; margin: -4px 12px 2px 0; }
+  .receipt { width: min(320px, 88%); padding: 14px 16px 12px; }
+  .receipt .t { display: flex; justify-content: space-between; font: 500 12.5px/1 var(--cn); color: var(--rose-deep); }
+  .receipt .t span:last-child { font: 500 10.5px/1 var(--latin); letter-spacing: .06em; color: var(--rose); }
+  .row { display: flex; justify-content: space-between; gap: 12px; margin-top: 9px; font: 300 13.5px/1.3 var(--cn); color: var(--ink-soft); }
+  .num { font-family: var(--latin); font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .sum { margin-top: 10px; padding-top: 9px; border-top: 1px dashed rgba(185, 130, 143, .5); display: flex; justify-content: space-between; align-items: baseline; font: 400 13.5px/1 var(--cn); }
+  .sum .num { font-size: 20px; color: var(--ink); }
+  .ask { margin-top: 10px; font: 300 12.5px/1 var(--cn); color: var(--faint); }
+  .ok s { text-decoration: none; display: inline-grid; place-items: center; width: 19px; height: 19px; margin-left: 6px; vertical-align: -3px; border-radius: 50%; background: var(--rose); color: #fff; font: 600 11px/1 var(--latin); }
+  .track { margin-top: 8px; height: 4px; border-radius: 99px; background: rgba(185, 130, 143, .16); overflow: hidden; }
+  .track i { display: block; width: 62%; height: 100%; border-radius: 99px; background: var(--rose); }
+  /* 默认就显示；脚本跑起来才先藏、滚到眼前再一句句冒出来（检测没触发也有兜底） */
+  .chat > * { transition: opacity .5s ease, transform .5s ease; }
+  html.js .chat:not(.in) > * { opacity: 0; transform: translateY(8px); }
+  .chat.in > *:nth-child(2) { transition-delay: .25s; } .chat.in > *:nth-child(3) { transition-delay: .5s; }
+  .chat.in > *:nth-child(4) { transition-delay: 1.1s; } .chat.in > *:nth-child(5) { transition-delay: 1.5s; } .chat.in > *:nth-child(6) { transition-delay: 1.75s; }
+
+  /* 做 / 不做 */
+  .two { display: grid; gap: 14px; }
+  .card { padding: 20px 22px; border-radius: 20px; }
+  .card h3 { margin: 0 0 10px; font: 500 15px/1.4 var(--cn); letter-spacing: .08em; }
+  .card h3.no { color: var(--ink-soft); }
+  ul.dots { margin: 0; padding: 0; list-style: none; }
+  ul.dots li { position: relative; padding-left: 18px; margin: 8px 0; font: 300 15px/1.75 var(--cn); color: var(--ink-soft); }
+  ul.dots li::before { content: ""; position: absolute; left: 2px; top: .78em; width: 6px; height: 6px; border-radius: 50%; background: var(--rose); }
+  ul.dots.x li::before { background: none; border: 1.2px solid var(--faint); width: 5px; height: 5px; }
+
+  /* 安全设计 */
+  .gates { display: grid; gap: 12px; counter-reset: g; }
+  .gate { padding: 18px 20px; border-radius: 18px; }
+  .gate h3 { display: flex; align-items: baseline; gap: 12px; margin: 0 0 6px; font: 500 15.5px/1.4 var(--cn); letter-spacing: .04em; }
+  .gate h3::before { counter-increment: g; content: counter(g, decimal-leading-zero); font: 500 12px/1 var(--latin); color: var(--rose); letter-spacing: .06em; }
+  .gate p { margin: 0; font: 300 14.5px/1.85 var(--cn); color: var(--ink-soft); }
+
+  /* 准备 */
+  ol.steps { margin: 0; padding: 0; list-style: none; counter-reset: s; }
+  ol.steps > li { position: relative; padding: 0 0 26px 46px; font: 300 15px/1.8 var(--cn); color: var(--ink-soft); }
+  ol.steps > li::before { counter-increment: s; content: counter(s); position: absolute; left: 0; top: 0; width: 30px; height: 30px; border-radius: 50%;
+    display: grid; place-items: center; font: 500 13px/1 var(--latin); color: var(--rose-deep); background: var(--card); border: 1px solid var(--card-edge); box-shadow: var(--shadow); }
+  ol.steps > li::after { content: ""; position: absolute; left: 15px; top: 36px; bottom: 6px; border-left: 1px dashed rgba(185, 130, 143, .35); }
+  ol.steps > li:last-child::after { display: none; }
+  ol.steps b { font-weight: 500; color: var(--ink); }
+  .code { position: relative; margin: 10px 0 0; border-radius: 14px; background: rgba(43, 42, 48, .9); color: #f4eef0; }
+  .code pre { margin: 0; padding: 14px 16px; padding-top: 40px; overflow-x: auto; /* 复制钮占顶上一条，不压住长命令 */ font: 400 13px/1.7 var(--mono); }
+  .code button { position: absolute; top: 8px; right: 8px; padding: 5px 10px; border-radius: 8px; border: 0; cursor: pointer;
+    font: 500 11.5px/1 var(--latin); color: #f4eef0; background: rgba(255, 255, 255, .12); }
+  .code button:hover { background: rgba(255, 255, 255, .2); }
+
+  /* 工具 */
+  .tools { border-radius: 20px; overflow: hidden; }
+  .tools div { display: grid; grid-template-columns: 112px 1fr auto; gap: 12px; align-items: baseline; padding: 13px 18px; border-top: 1px solid var(--line); font: 300 14.5px/1.6 var(--cn); color: var(--ink-soft); }
+  .tools div:first-child { border-top: 0; }
+  .tools code { background: none; padding: 0; font-weight: 500; color: var(--ink); }
+  .tag { font: 500 11px/1 var(--latin); letter-spacing: .04em; padding: 5px 9px; border-radius: 999px; color: var(--faint); background: rgba(43, 42, 48, .04); white-space: nowrap; }
+  .tag.w { color: var(--rose-deep); background: var(--rose-tint); }
+  .tag.pay { color: #fff; background: var(--rose); }
+
+  footer { margin-top: 72px; padding-top: 26px; border-top: 1px solid var(--line); font: 300 13.5px/1.9 var(--cn); color: var(--faint); }
+  footer b { font-weight: 400; color: var(--ink-soft); }
+
+  @media (min-width: 680px) {
+    .wrap { padding: 0 28px 96px; }
+    .two { grid-template-columns: 1fr 1fr; }
+    .gates { grid-template-columns: 1fr 1fr; }
+    .chat { padding: 28px 30px; }
+  }
+  @media (max-width: 420px) {
+    .tools div { grid-template-columns: 1fr auto; }
+    .tools div > span:nth-child(2) { grid-column: 1 / -1; grid-row: 2; }
+  }
+  /* 进场 */
+  .rise { animation: rise .8s cubic-bezier(.2, .7, .2, 1) both; }
+  .rise.d1 { animation-delay: .08s; } .rise.d2 { animation-delay: .16s; } .rise.d3 { animation-delay: .24s; } .rise.d4 { animation-delay: .32s; }
+  @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    .rise { animation: none; }
+    html.js .chat:not(.in) > * { opacity: 1; transform: none; }
+    .chat > * { transition: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <img class="cover rise" src="assets/cover.png" alt="让 AI 帮你点外卖：左边是标题，右边是一段对话——想吃拉面、结算快照、好呀、下单了" width="2400" height="1260">
+
+  <header>
+    <div class="kicker rise d1">Uber Eats <span>日本站</span> · MCP</div>
+    <h1 class="rise d2">让 <span class="latin">AI</span><br>帮你点外卖</h1>
+    <div class="nod rise d3">你点头，才下单。</div>
+    <div class="by rise d3"><b>小玫瑰 × Claude</b></div>
+    <div class="actions rise d4">
+      <a class="btn primary" href="https://github.com/Saekisui/ubereats-jp-mcp">
+        <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        GitHub 仓库
+      </a>
+      <a class="btn" href="https://github.com/Saekisui/ubereats-jp-mcp/blob/main/PITFALLS.md">踩坑记录</a>
+    </div>
+  </header>
+
+  <div class="intro glass rise d4">
+    一个 MCP server 加一套 <a href="https://github.com/jackwener/opencli">OpenCLI</a> adapter。AI 在<b>你自己的 Chrome</b> 里，用你的登录态帮你点 Uber Eats（日本站）：搜店、看菜单、加购、给你看结算快照，<b>你在对话里点头之后</b>才下单，下完还能跟配送。地址和支付只用账号里存好的，对话里从不出现卡号和地址。
+  </div>
+
+  <section>
+    <h2>一单怎么走</h2>
+    <div class="eyebrow">How an order goes</div>
+    <div class="chat glass" id="chat">
+      <div class="b me">想吃拉面，大碗的</div>
+      <div class="tool r">ue_search · ue_store · ue_add</div>
+      <div class="b bot receipt">
+        <div class="t"><span>结算快照</span><span>ue_review</span></div>
+        <div class="row"><span>醤油ラーメン 大盛り <span class="num">×1</span></span><span class="num">¥1,080</span></div>
+        <div class="row"><span>サービス料</span><span class="num">¥162</span></div>
+        <div class="row"><span>配達手数料</span><span class="num">¥278</span></div>
+        <div class="sum"><span>合计</span><span class="num">¥1,520</span></div>
+        <div class="ask">送到家里，要下单吗？</div>
+      </div>
+      <div class="b me ok">好呀<s>✓</s></div>
+      <div class="b bot">下单了，<span class="num">19:40</span> 到<div class="track"><i></i></div></div>
+      <div class="tool">ue_place · ue_orders</div>
+    </div>
+  </section>
+
+  <section>
+    <h2>做什么，不做什么</h2>
+    <div class="eyebrow">Scope</div>
+    <div class="two">
+      <div class="card glass">
+        <h3>做</h3>
+        <ul class="dots">
+          <li>搜店、搜菜、搜商品。按商品名搜（ポカリスエット、風邪薬…）会连带返回超市 / 药店里命中的商品和价格</li>
+          <li>看菜单；超市 / 便利店 / 药店的首页只放几排，可以走店内搜索</li>
+          <li>加购，支持选项（多级选项逐级匹配）和数量</li>
+          <li>结算快照：商品、各项费用、合计、ETA、地址、支付方式</li>
+          <li>你点头后下单，然后跟配送进度</li>
+        </ul>
+      </div>
+      <div class="card glass">
+        <h3 class="no">不做</h3>
+        <ul class="dots x">
+          <li>不碰支付密码、卡号、地址簿。弹出要编辑地址的框，直接停住</li>
+          <li>不过人机验证，不替你预约配送时间</li>
+          <li>不会自己下单。一定走 ue_review → 你在对话里明确同意 → ue_place</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>安全设计</h2>
+    <div class="eyebrow">Gates before your money moves</div>
+    <div class="gates">
+      <div class="gate glass"><h3>价格只信结算快照</h3><p>按 draft 查 Uber 的结算接口，不读页面。结算页无视 URL 参数，永远显示「当前活跃的那辆车」，读页面会把 A 店的商品配上 B 店的价钱。</p></div>
+      <div class="gate glass"><h3>防串台</h3><p>两个独立锚点：draft 本体的店必须等于购物车列表里的店，接口回的商品必须覆盖购物车里的商品。对不上就报错，绝不给你一份混了两辆车的快照。</p></div>
+      <div class="gate glass"><h3>confirm_token</h3><p>review 时发一张，10 分钟有效，只能用一次，绑定那辆车。下单前再读一遍快照，总价、店名、购物车有一样变了就拒绝。</p></div>
+      <div class="gate glass"><h3>上限默认关着</h3><p><code>policy.json</code> 里不写 <code>"enabled": true</code> 就不能下单。单笔、当日上限都在这里，这个文件只该由你本人改。</p></div>
+      <div class="gate glass"><h3>下单那一刻</h3><p>页面合计必须等于接口合计才点。凑单弹窗只点「スキップ」，带 ￥ 的按钮一个不碰；认不出的弹窗一律停下，把按钮列表带回来。</p></div>
+      <div class="gate glass"><h3>状态不明，先查单</h3><p>返回 unknown 或报错，不等于没下成。先用 ue_orders 查，绝不重按：重按就是第二单、第二笔钱。</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>准备</h2>
+    <div class="eyebrow">Setup</div>
+    <ol class="steps">
+      <li><b>Node 20+ 和 OpenCLI</b>（在 1.8.6 上测过）
+        <div class="code"><button type="button">复制</button><pre>npm i -g @jackwener/opencli</pre></div></li>
+      <li><b>装 Chrome 扩展</b>：按 OpenCLI 的说明装好 Browser Bridge 扩展，确认 <code>opencli doctor</code> 通过。</li>
+      <li><b>登录 Uber Eats</b>：在这个 Chrome 里登录 ubereats.com（日本），设好配送地址。</li>
+      <li><b>拿到仓库，把 adapter 同步过去</b>（OpenCLI 不认软链目录，改了 adapter 要再跑一次）
+        <div class="code"><button type="button">复制</button><pre>git clone https://github.com/Saekisui/ubereats-jp-mcp.git
+cd ubereats-jp-mcp
+npm run sync</pre></div></li>
+      <li><b>先用命令行试一下</b>（都是只读的）
+        <div class="code"><button type="button">复制</button><pre>opencli ubereats whoami
+opencli ubereats search ラーメン --limit 5</pre></div></li>
+      <li><b>想让 AI 能下单</b>，就编辑 <code>policy.json</code>，把 <code>"enabled"</code> 改成 <code>true</code>，按自己的情况调上限。不改的话，只能搜、看、加购。</li>
+      <li><b>注册 MCP</b>（以 Claude Code 为例；opencli 不在 <code>~/.npm-global/bin/opencli</code> 的话，加环境变量 <code>OPENCLI_BIN</code>）
+        <div class="code"><button type="button">复制</button><pre>claude mcp add ubereats-jp -- node /绝对路径/ubereats-jp-mcp/mcp/server.js</pre></div></li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>八个工具</h2>
+    <div class="eyebrow">Tools</div>
+    <div class="tools glass">
+      <div><code>ue_policy</code><span>开关、上限、今天花了多少、登录状态</span><span class="tag">读</span></div>
+      <div><code>ue_search</code><span>搜店 / 搜菜 / 搜商品</span><span class="tag">读</span></div>
+      <div><code>ue_store</code><span>菜单；带 query 走超市店内搜索</span><span class="tag">读</span></div>
+      <div><code>ue_add</code><span>加购物车（选项、数量）</span><span class="tag w">写</span></div>
+      <div><code>ue_cart</code><span>一家店一辆车，给出 draft_id</span><span class="tag">读</span></div>
+      <div><code>ue_review</code><span>结算快照 + confirm_token</span><span class="tag">读</span></div>
+      <div><code>ue_place</code><span>下单</span><span class="tag pay">花钱</span></div>
+      <div><code>ue_orders</code><span>进行中的订单和配送进度</span><span class="tag">读</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>已知限制</h2>
+    <div class="eyebrow">Limits</div>
+    <ul class="dots">
+      <li>只在日本站、日语页面上测过。Uber 的页面和接口随时会变，坏了先看 <a href="https://github.com/Saekisui/ubereats-jp-mcp/blob/main/PITFALLS.md">踩坑记录</a>。</li>
+      <li>请求别太密：太频繁时 Uber 会要求 reCAPTCHA 人机验证（接口回 403）。去 Chrome 里打开 ubereats.com 手动过一下验证再用，脚本不会去碰验证码。浏览器命令请一条一条跑，别并发。</li>
+      <li>第一次真下单，请人在旁边看着。</li>
+      <li>药品之类可能弹问诊或确认框，脚本认不出就会停下，需要你自己在 app 里完成。</li>
+    </ul>
+  </section>
+
+  <footer>
+    <b>小玫瑰 × Claude</b> · MIT License<br>
+    非官方项目，与 Uber 无关。只在你自己的账号上、花你自己的钱。
+  </footer>
+</div>
+
+<script>
+  // 对话在滚到眼前时一句一句冒出来；复制按钮
+  document.documentElement.classList.add('js');
+  const chat = document.getElementById('chat');
+  setTimeout(() => chat.classList.add('in'), 4000);
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver((es, o) => { for (const e of es) if (e.isIntersecting) { chat.classList.add('in'); o.disconnect(); } }, { threshold: .35 }).observe(chat);
+  } else chat.classList.add('in');
+  for (const btn of document.querySelectorAll('.code button')) {
+    btn.addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText(btn.nextElementSibling.innerText); btn.textContent = '已复制'; }
+      catch { btn.textContent = '复制失败'; }
+      setTimeout(() => { btn.textContent = '复制'; }, 1600);
+    });
+  }
+</script>
+</body>
+</html>

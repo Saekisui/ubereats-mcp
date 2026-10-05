@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Cover</title>
+<!-- 分享封面（1200×630）：奶白底 + 灰玫瑰，左边细字标题，右边一段磨砂玻璃对话。中文苹方（macOS 自带），拉丁 Manrope。
+     改完在 macOS 上重新渲染（苹方是系统字体，别的系统渲出来字不对）：
+     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --hide-scrollbars --user-data-dir=/tmp/cover-render \
+       --window-size=1200,630 --force-device-scale-factor=2 --virtual-time-budget=10000 --screenshot=assets/cover.png "file://$PWD/assets/cover.html" -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #f9f6f2;
+    --ink: #2b2a30;
+    --ink-soft: #6f6b73;
+    --faint: #aaa4a7;
+    --rose: #b9828f;        /* 灰玫瑰 */
+    --rose-deep: #9c6876;
+    --rose-tint: rgba(185, 130, 143, .14);
+    --cn: "PingFang SC", "Hiragino Sans GB", sans-serif;
+    --latin: "Manrope", "PingFang SC", sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1200px; height: 630px; overflow: hidden; }
+  body { position: relative; color: var(--ink); font-family: var(--cn); background: var(--paper); }
+  /* 玻璃后面要有一点东西可磨：两团很淡的光 */
+  .glow { position: absolute; border-radius: 50%; filter: blur(70px); }
+  .glow.a { width: 440px; height: 380px; right: 90px; top: 40px; background: rgba(214, 176, 184, .45); }
+  .glow.b { width: 380px; height: 300px; right: 280px; bottom: -80px; background: rgba(238, 226, 210, .9); }
+
+  .glass {
+    background: rgba(255, 255, 255, .55); border: 1px solid rgba(255, 255, 255, .85);
+    box-shadow: 0 1px 2px rgba(60, 40, 50, .05), 0 10px 30px rgba(120, 90, 100, .10);
+    backdrop-filter: blur(22px) saturate(140%); -webkit-backdrop-filter: blur(22px) saturate(140%);
+  }
+
+  /* ── 左：标题 ── */
+  .text { position: absolute; left: 100px; top: 50%; transform: translateY(-56%); }
+  .kicker { font: 500 13.5px/1 var(--latin); letter-spacing: .16em; color: var(--faint); text-transform: uppercase; }
+  .kicker span { font-family: var(--cn); font-weight: 400; letter-spacing: .1em; }
+  h1 { margin-top: 28px; font: 200 64px/1.24 var(--cn); letter-spacing: .06em; color: var(--ink); }
+  h1 .latin { font-family: var(--latin); font-weight: 300; letter-spacing: .02em; }
+  .nod { margin-top: 28px; font: 300 20px/1 var(--cn); letter-spacing: .14em; color: var(--rose-deep); }
+  .foot { position: absolute; left: 100px; bottom: 52px; font: 400 13px/1 var(--latin); color: var(--faint); letter-spacing: .06em; }
+  .foot b { font: 400 13px/1 var(--cn); color: var(--ink-soft); letter-spacing: .12em; margin-right: 6px; }
+  .foot i { font-style: normal; margin: 0 10px; color: #dcd5d6; }
+
+  /* ── 右：一段对话 ── */
+  .chat { position: absolute; right: 78px; top: 58px; width: 440px; display: flex; flex-direction: column; gap: 13px; }
+  .b { max-width: 82%; padding: 12px 18px; border-radius: 20px; font: 400 18px/1.4 var(--cn); color: var(--ink); }
+  .me { align-self: flex-end; border-bottom-right-radius: 6px; background: var(--rose-tint); border-color: rgba(255, 255, 255, .7); }
+  .bot { align-self: flex-start; border-bottom-left-radius: 6px; }
+  .tool { align-self: flex-start; margin: -5px 0 0 14px; font: 500 11px/1 var(--latin); letter-spacing: .08em; color: var(--rose); }
+  .tool.r { align-self: flex-end; margin: -5px 14px 0 0; }
+
+  .receipt { width: 316px; padding: 15px 19px 13px; }
+  .receipt .t { display: flex; justify-content: space-between; align-items: center; font: 500 13px/1 var(--cn); color: var(--rose-deep); letter-spacing: .06em; }
+  .receipt .t span:last-child { font: 500 10.5px/1 var(--latin); letter-spacing: .08em; color: var(--rose); }
+  .row { display: flex; justify-content: space-between; margin-top: 10px; font: 300 14px/1.2 var(--cn); color: var(--ink-soft); }
+  .num { font-family: var(--latin); font-weight: 500; font-variant-numeric: tabular-nums; }
+  .sum { margin-top: 11px; padding-top: 10px; border-top: 1px dashed rgba(185, 130, 143, .5); display: flex; justify-content: space-between; align-items: baseline; }
+  .sum span:first-child { font: 400 14px/1 var(--cn); }
+  .sum .num { font-size: 22px; font-weight: 500; color: var(--ink); }
+  .ask { margin-top: 11px; font: 300 13.5px/1 var(--cn); color: var(--faint); }
+
+  .ok s { text-decoration: none; display: inline-grid; place-items: center; width: 21px; height: 21px; margin-left: 6px; vertical-align: -3px; border-radius: 50%; background: var(--rose); color: #fff; font: 600 12px/1 var(--latin); }
+  .track { margin-top: 9px; height: 4px; border-radius: 99px; background: rgba(185, 130, 143, .16); overflow: hidden; }
+  .track i { display: block; width: 62%; height: 100%; border-radius: 99px; background: var(--rose); }
+</style>
+</head>
+<body>
+  <div class="glow a"></div><div class="glow b"></div>
+
+  <div class="text">
+    <div class="kicker">Uber Eats <span>日本站</span> · MCP</div>
+    <h1>让 <span class="latin">AI</span><br>帮你点外卖</h1>
+    <div class="nod">你点头，才下单。</div>
+  </div>
+  <div class="foot"><b>小玫瑰 × Claude</b><i>|</i>github.com/Saekisui/ubereats-jp-mcp</div>
+
+  <div class="chat">
+    <div class="b me glass">想吃拉面，大碗的</div>
+    <div class="tool r">ue_search · ue_store · ue_add</div>
+    <div class="b bot glass receipt">
+      <div class="t"><span>结算快照</span><span>ue_review</span></div>
+      <div class="row"><span>醤油ラーメン 大盛り <span class="num">×1</span></span><span class="num">¥1,080</span></div>
+      <div class="row"><span>サービス料</span><span class="num">¥162</span></div>
+      <div class="row"><span>配達手数料</span><span class="num">¥278</span></div>
+      <div class="sum"><span>合计</span><span class="num">¥1,520</span></div>
+      <div class="ask">送到家里，要下单吗？</div>
+    </div>
+    <div class="b me glass ok">好呀<s>✓</s></div>
+    <div class="b bot glass">下单了，<span class="num">19:40</span> 到<div class="track"><i></i></div></div>
+    <div class="tool">ue_place · ue_orders</div>
+  </div>
+</body>
+</html>
