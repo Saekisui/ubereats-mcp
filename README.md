@@ -1,8 +1,8 @@
-# ubereats-jp-mcp
+# ubereats-mcp
 
 ![让 AI 帮你点外卖](assets/cover.png)
 
-**介绍页：<https://saekisui.github.io/ubereats-jp-mcp/>**
+**介绍页：<https://saekisui.github.io/ubereats-mcp/>**
 
 让 AI 在**你自己的 Chrome** 里帮你点 Uber Eats（日本站）：搜店 / 搜商品、看菜单、加购、看结算快照，**你点头之后**才下单，下单后跟配送。
 
@@ -52,7 +52,7 @@
 3. 在这个 Chrome 里登录 **ubereats.com（日本）**，设好配送地址。
 4. 拿到本仓库，把 adapter 同步到 OpenCLI（OpenCLI 不认软链目录，必须复制过去；以后改了 adapter 也要再跑一次）：
    ```bash
-   git clone <本仓库地址> && cd ubereats-jp-mcp
+   git clone https://github.com/Saekisui/ubereats-mcp.git && cd ubereats-mcp
    npm run sync
    ```
 5. 先用命令行试一下，都是只读的：
@@ -63,7 +63,7 @@
 6. 想让 AI 能下单的话，编辑 `policy.json`，把 `"enabled"` 改成 `true`，并按自己的情况调上限。不改就只能搜、看、加购，不能下单。
 7. 注册 MCP。以 Claude Code 为例：
    ```bash
-   claude mcp add ubereats-jp -- node /绝对路径/ubereats-jp-mcp/mcp/server.js
+   claude mcp add ubereats-jp -- node /绝对路径/ubereats-mcp/mcp/server.js
    ```
    如果 opencli 不在 `~/.npm-global/bin/opencli`，加上环境变量 `OPENCLI_BIN=/path/to/opencli`。
 
